@@ -1,11 +1,15 @@
-name: Build Release Artifact
+name: Upload to Plugin Repository
 
 on:
   push:
-    branches: 'master'
+    tags:
+      - '*'
 
 env:
   SOLUTION_NAME: OOBlugin
+  INTERNAL_NAME: OOBlugin
+  RELEASE_DIR: ./Publish
+  PERSONAL_PLUGIN_REPO: UnknownX7/DalamudPluginRepo
 
 jobs:
   build:
@@ -31,11 +35,30 @@ jobs:
       - name: Build
         run: msbuild ${{ env.SOLUTION_NAME }}.sln /p:Configuration=Release
 
-      - name: Extract Publish
-        run: |
-          Expand-Archive -Force ./Publish/latest.zip ./Artifact
-
       - name: Upload Build Artifact
         uses: actions/upload-artifact@v2.2.1
         with:
-          path: ./Artifact/*
+          path: ${{ env.RELEASE_DIR }}/*
+
+  deploy:
+    needs: build
+    runs-on: [ubuntu-latest]
+
+    steps:
+    - uses: actions/checkout@v2
+      with:
+        repository: ${{ env.PERSONAL_PLUGIN_REPO }}
+        token: ${{ secrets.PAT }}
+
+    - uses: actions/download-artifact@v2
+      with:
+        name: artifact
+        path: plugins/${{ env.INTERNAL_NAME }}
+
+    - uses: EndBug/add-and-commit@v7
+      with:
+        add: --all
+        author_name: GitHub Action
+        author_email: github-actions[bot]@users.noreply.github.com
+        branch: master
+        message: Update ${{ env.INTERNAL_NAME }}
