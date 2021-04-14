@@ -1,4 +1,4 @@
-﻿using System;
+using System;
 using System.Collections.Generic;
 using System.Diagnostics;
 using System.Reflection;
@@ -12,7 +12,7 @@ using Dalamud.Hooking;
 using OOBlugin.Attributes;
 
 [assembly: AssemblyTitle("OOBlugin")]
-[assembly: AssemblyVersion("1.0.1.0")]
+[assembly: AssemblyVersion("1.0.1.1")]
 
 namespace OOBlugin
 {
@@ -111,7 +111,7 @@ namespace OOBlugin
                 //NewGamePlusHook = new Hook<NewGamePlusDelegate>(f, new NewGamePlusDelegate(NewGamePlusDetour));
                 //NewGamePlusHook.Enable();
 
-                unknownPtr1Ptr = Interface.TargetModuleScanner.GetStaticAddressFromSig("?? ?? ?? ?? ?? 75 33 45 33 C0 33 D2 B9 D0 00 00 00"); // 48 83 3D ?? ?? ?? ?? ?? 75 33 45 33 C0 33 D2 B9 D0 00 00 00 // apparently returns -1
+                unknownPtr1Ptr = Interface.TargetModuleScanner.GetStaticAddressFromSig("48 8B 1D ?? ?? ?? ?? 48 85 DB 74 15 48 8B CB E8 ?? ?? ?? ?? BA D0 00 00 00"); // 48 83 3D ?? ?? ?? ?? ?? 75 33 45 33 C0 33 D2 B9 D0 00 00 00 // apparently returns -1
                 NewGamePlusEnable = Marshal.GetDelegateForFunctionPointer<NewGamePlusDelegate>(f);
 
                 // I hate this
@@ -230,6 +230,7 @@ namespace OOBlugin
             if (unknownPtr1Ptr != IntPtr.Zero && newGameUIPtr != IntPtr.Zero)
             {
                 *(byte*)(newGameUIPtr + 0x8) ^= 1;
+                //PrintEcho($"{(*(IntPtr*)unknownPtr1Ptr).ToString("X")} {newGameUIPtr.ToString("X")}");
                 NewGamePlusEnable(*(IntPtr*)unknownPtr1Ptr, newGameUIPtr, IntPtr.Zero);
             }
             else
