@@ -13,7 +13,7 @@ using Dalamud.Hooking;
 using OOBlugin.Attributes;
 
 [assembly: AssemblyTitle("OOBlugin")]
-[assembly: AssemblyVersion("1.0.1.1")]
+[assembly: AssemblyVersion("1.0.2.0")]
 
 namespace OOBlugin
 {
