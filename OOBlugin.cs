@@ -7,6 +7,7 @@ using System.Text;
 using System.Text.RegularExpressions;
 using System.Threading;
 using System.Windows.Forms;
+using ImGuiNET;
 using Dalamud.Plugin;
 using Dalamud.Hooking;
 using OOBlugin.Attributes;
@@ -18,15 +19,24 @@ namespace OOBlugin
 {
     public class OOBlugin : IDalamudPlugin
     {
+        public string Name => "OOBlugin";
+
         public static DalamudPluginInterface Interface { get; private set; }
         private PluginCommandManager<OOBlugin> commandManager;
         public static Configuration Config { get; private set; }
         public static OOBlugin Plugin { get; private set; }
         private PluginUI ui;
 
+        private bool pluginReady = false;
+
         private readonly Stopwatch timer = new Stopwatch();
         private int fpsLock = 0;
         private float fpsLockTime = 0;
+
+        // Command Execution
+        private delegate void ProcessChatBoxDelegate(IntPtr uiModule, IntPtr message, IntPtr unused, byte a4);
+        private ProcessChatBoxDelegate ProcessChatBox;
+        private static IntPtr uiModule = IntPtr.Zero;
 
         private readonly List<string> quickExecuteQueue = new List<string>();
 
@@ -34,10 +44,6 @@ namespace OOBlugin
         private bool sendShift = false;
         private bool sendCtrl = false;
         private bool sendAlt = false;
-
-        private bool pluginReady = false;
-
-        public string Name => "OOBlugin";
 
         private IntPtr unknownPtr1Ptr, unknownPtr1, newGameUIPtr;
         private delegate void NewGamePlusMenuDelegate(IntPtr a1);
@@ -60,6 +66,21 @@ namespace OOBlugin
         }
         private NewGamePlusDelegate NewGamePlusEnable;
 
+        private IntPtr walkingBoolPtr = IntPtr.Zero;
+        private float walkTime = 0;
+        private unsafe bool IsWalking
+        {
+            get => walkingBoolPtr != IntPtr.Zero && *(bool*)walkingBoolPtr;
+            set
+            {
+                if (walkingBoolPtr != IntPtr.Zero)
+                {
+                    *(bool*)walkingBoolPtr = value;
+                    *(bool*)(walkingBoolPtr - 0x10B) = value; // Autorun
+                }
+            }
+        }
+
         public void Initialize(DalamudPluginInterface p)
         {
             Plugin = this;
@@ -75,15 +96,21 @@ namespace OOBlugin
 
             commandManager = new PluginCommandManager<OOBlugin>(this, Interface);
 
-            InitCommands();
+            ExtendSendKeys();
+            InitializePointers();
 
+            pluginReady = true;
+        }
+
+        private static void ExtendSendKeys()
+        {
             // Add to SendKeys using reflection
-            FieldInfo info = typeof(SendKeys).GetField("keywords", BindingFlags.Static | BindingFlags.NonPublic);
-            Array oldKeys = (Array)info.GetValue(null);
+            var info = typeof(SendKeys).GetField("keywords", BindingFlags.Static | BindingFlags.NonPublic);
+            var oldKeys = (Array)info.GetValue(null);
             if (oldKeys.Length == 49)
             {
-                Type elementType = oldKeys.GetType().GetElementType();
-                Array newKeys = Array.CreateInstance(elementType, oldKeys.Length + 10 + 172);
+                var elementType = oldKeys.GetType().GetElementType();
+                var newKeys = Array.CreateInstance(elementType, oldKeys.Length + 10 + 172);
                 Array.Copy(oldKeys, newKeys, oldKeys.Length);
                 var ind = 0;
                 for (int i = 0; i < 10; i++)
@@ -101,6 +128,16 @@ namespace OOBlugin
                 }
                 info.SetValue(null, newKeys);
             }
+        }
+
+        private void InitializePointers()
+        {
+            try
+            {
+                ProcessChatBox = Marshal.GetDelegateForFunctionPointer<ProcessChatBoxDelegate>(Interface.TargetModuleScanner.ScanText("48 89 5C 24 ?? 57 48 83 EC 20 48 8B FA 48 8B D9 45 84 C9"));
+                uiModule = Interface.Framework.Gui.GetUIModule();
+            }
+            catch { PrintError("Failed to load /qexec"); }
 
             try
             {
@@ -138,9 +175,10 @@ namespace OOBlugin
                     newGameStructPtr += 0xA8;
                 PluginLog.Error($"{unknownPtr1.ToString("X")} {newGameStructPtr.ToString("X")}");*/
             }
-            catch { }
+            catch { PrintError("Failed to load /ng+t"); }
 
-            pluginReady = true;
+            try { walkingBoolPtr = Interface.TargetModuleScanner.GetStaticAddressFromSig("88 83 33 05 00 00"); } // also found at g_PlayerMoveController+523
+            catch { PrintError("Failed to load /walk"); }
         }
 
         [Command("/freezegame")]
@@ -181,7 +219,7 @@ namespace OOBlugin
         }
 
         [Command("/qexec")]
-        [HelpMessage("Excecutes all commands in a single frame. Usage: \"/qexec /echo Hello\" > \"/qexec /echo there!\" > \"/qexec\".")]
+        [HelpMessage("Executes all commands in a single frame. Usage: \"/qexec /echo Hello\" > \"/qexec /echo there!\" > \"/qexec\".")]
         private void OnQuickExecute(string command, string argument)
         {
             if (string.IsNullOrEmpty(argument))
@@ -237,6 +275,16 @@ namespace OOBlugin
                 PrintError("Command failed to initialize, please manually suspend or resume NG+.");
         }
 
+        [Command("/walk")]
+        [HelpMessage("Toggles RP walk, alternatively, you can specify an amount of time in seconds to walk for.")]
+        private void OnWalk(string command, string argument)
+        {
+            if (!float.TryParse(argument, out walkTime))
+                IsWalking = !IsWalking;
+            else
+                IsWalking = true;
+        }
+
         public static void PrintEcho(string message) => Interface.Framework.Gui.Chat.Print($"[OOBlugin] {message}");
         public static void PrintError(string message) => Interface.Framework.Gui.Chat.PrintError($"[OOBlugin] {message}");
 
@@ -265,6 +313,9 @@ namespace OOBlugin
             else
                 sentKey = false;
 
+            if (walkTime > 0 && (walkTime -= ImGui.GetIO().DeltaTime) <= 0)
+                IsWalking = false;
+
             if (fpsLockTime > 0 && fpsLock > 0)
             {
                 var wantedMS = 1.0f / fpsLock * 1000;
@@ -283,69 +334,24 @@ namespace OOBlugin
             ui.Draw();
         }
 
-        #region Chat Injection
-        private delegate IntPtr GetUIModuleDelegate(IntPtr basePtr);
-        private delegate void EasierProcessChatBoxDelegate(IntPtr uiModule, IntPtr message, IntPtr unused, byte a4);
-
-        private GetUIModuleDelegate GetUIModule;
-        private EasierProcessChatBoxDelegate _EasierProcessChatBox;
-
-        public IntPtr uiModulePtr;
-
-        private void InitCommands()
-        {
-            try
-            {
-                var getUIModulePtr = Interface.TargetModuleScanner.ScanText("E8 ?? ?? ?? ?? 48 83 7F ?? 00 48 8B F0");
-                var easierProcessChatBoxPtr = Interface.TargetModuleScanner.ScanText("48 89 5C 24 ?? 57 48 83 EC 20 48 8B FA 48 8B D9 45 84 C9");
-                uiModulePtr = Interface.TargetModuleScanner.GetStaticAddressFromSig("48 8B 0D ?? ?? ?? ?? 48 8D 54 24 ?? 48 83 C1 10 E8 ?? ?? ?? ??");
-
-                GetUIModule = Marshal.GetDelegateForFunctionPointer<GetUIModuleDelegate>(getUIModulePtr);
-                _EasierProcessChatBox = Marshal.GetDelegateForFunctionPointer<EasierProcessChatBoxDelegate>(easierProcessChatBoxPtr);
-            }
-            catch
-            {
-                PrintError("Error with loading signatures");
-            }
-        }
-
         private void ExecuteCommand(string command)
         {
             try
             {
-                if (uiModulePtr == null || uiModulePtr == IntPtr.Zero)
-                    InitCommands();
+                var bytes = Encoding.UTF8.GetBytes(command + "\0");
+                var memStr = Marshal.AllocHGlobal(0x18 + bytes.Length);
 
-                var uiModule = GetUIModule(Marshal.ReadIntPtr(uiModulePtr));
+                Marshal.WriteIntPtr(memStr, memStr + 0x18); // String pointer
+                Marshal.WriteInt64(memStr + 0x8, bytes.Length); // Byte capacity (unused)
+                Marshal.WriteInt64(memStr + 0x10, bytes.Length); // Byte length
+                Marshal.Copy(bytes, 0, memStr + 0x18, bytes.Length); // String
 
-                if (uiModule == IntPtr.Zero)
-                {
-                    throw new ApplicationException("uiModule was null");
-                }
+                ProcessChatBox(uiModule, memStr, IntPtr.Zero, 0);
 
-                var bytes = Encoding.UTF8.GetBytes(command);
-
-                var mem1 = Marshal.AllocHGlobal(400);
-                var mem2 = Marshal.AllocHGlobal(bytes.Length + 30);
-
-                Marshal.Copy(bytes, 0, mem2, bytes.Length);
-                Marshal.WriteByte(mem2 + bytes.Length, 0);
-                Marshal.WriteInt64(mem1, mem2.ToInt64());
-                Marshal.WriteInt64(mem1 + 8, 64);
-                Marshal.WriteInt64(mem1 + 8 + 8, bytes.Length + 1);
-                Marshal.WriteInt64(mem1 + 8 + 8 + 8, 0);
-
-                _EasierProcessChatBox(uiModule, mem1, IntPtr.Zero, 0);
-
-                Marshal.FreeHGlobal(mem1);
-                Marshal.FreeHGlobal(mem2);
+                Marshal.FreeHGlobal(memStr);
             }
-            catch
-            {
-                PrintError("Error with injecting command");
-            }
+            catch { PrintError("Failed injecting command"); }
         }
-        #endregion
 
         #region IDisposable Support
         protected virtual void Dispose(bool disposing)
