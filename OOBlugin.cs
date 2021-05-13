@@ -13,7 +13,7 @@ using Dalamud.Hooking;
 using OOBlugin.Attributes;
 
 [assembly: AssemblyTitle("OOBlugin")]
-[assembly: AssemblyVersion("1.0.2.0")]
+[assembly: AssemblyVersion("1.0.3.0")]
 
 namespace OOBlugin
 {
@@ -81,6 +81,11 @@ namespace OOBlugin
             }
         }
 
+        private delegate IntPtr GetModuleDelegate(IntPtr basePtr);
+        private IntPtr emoteAgent = IntPtr.Zero;
+        private delegate void DoEmoteDelegate(IntPtr a1, uint a2, long a3, bool a4, bool a5);
+        private DoEmoteDelegate DoEmote;
+
         public void Initialize(DalamudPluginInterface p)
         {
             Plugin = this;
@@ -130,12 +135,12 @@ namespace OOBlugin
             }
         }
 
-        private void InitializePointers()
+        private unsafe void InitializePointers()
         {
             try
             {
-                ProcessChatBox = Marshal.GetDelegateForFunctionPointer<ProcessChatBoxDelegate>(Interface.TargetModuleScanner.ScanText("48 89 5C 24 ?? 57 48 83 EC 20 48 8B FA 48 8B D9 45 84 C9"));
                 uiModule = Interface.Framework.Gui.GetUIModule();
+                ProcessChatBox = Marshal.GetDelegateForFunctionPointer<ProcessChatBoxDelegate>(Interface.TargetModuleScanner.ScanText("48 89 5C 24 ?? 57 48 83 EC 20 48 8B FA 48 8B D9 45 84 C9"));
             }
             catch { PrintError("Failed to load /qexec"); }
 
@@ -179,6 +184,14 @@ namespace OOBlugin
 
             try { walkingBoolPtr = Interface.TargetModuleScanner.GetStaticAddressFromSig("88 83 33 05 00 00"); } // also found at g_PlayerMoveController+523
             catch { PrintError("Failed to load /walk"); }
+
+            try
+            {
+                DoEmote = Marshal.GetDelegateForFunctionPointer<DoEmoteDelegate>(Interface.TargetModuleScanner.ScanText("E8 ?? ?? ?? ?? E9 ?? ?? ?? ?? B8 0A 00 00 00"));
+                var GetAgentModule = Marshal.GetDelegateForFunctionPointer<GetModuleDelegate>(*((IntPtr*)(*(IntPtr*)uiModule) + 34));
+                emoteAgent = *(IntPtr*)(GetAgentModule(uiModule) + 0x20 + 19 * 0x8); // Client::UI::Agent::AgentModule_GetAgentByInternalID (emote menu is ID 19)
+            }
+            catch { PrintError("Failed to load /doemote"); }
         }
 
         [Command("/freezegame")]
@@ -283,6 +296,19 @@ namespace OOBlugin
                 IsWalking = !IsWalking;
             else
                 IsWalking = true;
+        }
+
+        [Command("/doemote")]
+        [HelpMessage("Performs the specified emote by number.")]
+        private void OnDoEmote(string command, string argument)
+        {
+            emoteAgent = (emoteAgent != IntPtr.Zero) ? emoteAgent : Interface.Framework.Gui.FindAgentInterface("Emote");
+            if (emoteAgent == IntPtr.Zero) { PrintError("Failed to get emote agent, please open the emote window and then use this command to initialize it."); return; }
+
+            if (uint.TryParse(argument, out var emote))
+                DoEmote(emoteAgent, emote, 0, true, true);
+            else
+                PrintError("Emote must be specified by a number.");
         }
 
         public static void PrintEcho(string message) => Interface.Framework.Gui.Chat.Print($"[OOBlugin] {message}");
