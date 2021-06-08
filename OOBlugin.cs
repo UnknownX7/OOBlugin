@@ -45,24 +45,14 @@ namespace OOBlugin
         private bool sendCtrl = false;
         private bool sendAlt = false;
 
-        private IntPtr unknownPtr1Ptr, unknownPtr1, newGameUIPtr;
+        private IntPtr unknownPtr1Ptr, newGameUIPtr;
         private delegate void NewGamePlusMenuDelegate(IntPtr a1);
         private delegate void NewGamePlusDelegate(IntPtr a1, IntPtr a2, IntPtr a3);
         private Hook<NewGamePlusMenuDelegate> NewGamePlusMenuHook;
-        private Hook<NewGamePlusDelegate> NewGamePlusHook;
         private void NewGamePlusMenuDetour(IntPtr a1)
         {
             newGameUIPtr = a1 + 0xA8;
-            //PluginLog.Error($"{a1.ToString("X")}");
-            //PluginLog.Error($"{(a1 + 0xA8).ToString("X")}");
             NewGamePlusMenuHook.Original(a1);
-        }
-        private void NewGamePlusDetour(IntPtr a1, IntPtr a2, IntPtr a3)
-        {
-            unknownPtr1 = a1;
-            newGameUIPtr = a2;
-            //PluginLog.Error($"{a1.ToString("X")} & {a2.ToString("X")} & {a3.ToString("X")}");
-            NewGamePlusHook.Original(a1, a2, a3);
         }
         private NewGamePlusDelegate NewGamePlusEnable;
 
@@ -153,36 +143,8 @@ namespace OOBlugin
                 NewGamePlusMenuHook = new Hook<NewGamePlusMenuDelegate>(Interface.TargetModuleScanner.ScanText("40 53 48 83 EC 20 48 8B 01 48 8B D9 FF 50 30 84 C0 0F 84"), new NewGamePlusMenuDelegate(NewGamePlusMenuDetour));
                 NewGamePlusMenuHook.Enable();
 
-                var f = Interface.TargetModuleScanner.ScanText("48 89 5C 24 08 48 89 74 24 18 57 48 83 EC 30 48 8B 02 48 8B DA 48 8B F9 48 8D 54 24 48 48 8B CB");
-                //NewGamePlusHook = new Hook<NewGamePlusDelegate>(f, new NewGamePlusDelegate(NewGamePlusDetour));
-                //NewGamePlusHook.Enable();
-
                 unknownPtr1Ptr = Interface.TargetModuleScanner.GetStaticAddressFromSig("48 8B 1D ?? ?? ?? ?? 48 85 DB 74 15 48 8B CB E8 ?? ?? ?? ?? BA D0 00 00 00"); // 48 83 3D ?? ?? ?? ?? ?? 75 33 45 33 C0 33 D2 B9 D0 00 00 00 // apparently returns -1
-                NewGamePlusEnable = Marshal.GetDelegateForFunctionPointer<NewGamePlusDelegate>(f);
-
-                // I hate this
-                /*static unsafe IntPtr mov(IntPtr p, int offset)
-                {
-                    if (p == IntPtr.Zero)
-                        return IntPtr.Zero;
-                    else
-                        return *(IntPtr*)(p + offset);
-                }
-
-                newGameStructPtr = mov(Interface.TargetModuleScanner.GetStaticAddressFromSig("48 8B 05 ?? ?? ?? ?? 48 8D 54 24 30 44"), 0); // g_AtkStage
-                PluginLog.Error($"{newGameStructPtr.ToString("X")}");
-                newGameStructPtr = mov(newGameStructPtr, 0x70); PluginLog.Error($"1 {newGameStructPtr.ToString("X")}");
-                //newGameStructPtr -= 8;
-                newGameStructPtr = mov(newGameStructPtr, 0x71F0); PluginLog.Error($"2 {newGameStructPtr.ToString("X")}"); // 0x71F8
-                newGameStructPtr = mov(newGameStructPtr, 0x8); PluginLog.Error($"3 {newGameStructPtr.ToString("X")}");
-                newGameStructPtr = mov(newGameStructPtr, 0x10); PluginLog.Error($"4 {newGameStructPtr.ToString("X")}");
-                newGameStructPtr = mov(newGameStructPtr, 0x10); PluginLog.Error($"5 {newGameStructPtr.ToString("X")}");
-                newGameStructPtr = mov(newGameStructPtr, 0x10); PluginLog.Error($"6 {newGameStructPtr.ToString("X")}"); // Fails due to this not being correct outside of the NG+ menu, loops back to #2
-                newGameStructPtr = mov(newGameStructPtr, 0x10); PluginLog.Error($"7 {newGameStructPtr.ToString("X")}");
-                newGameStructPtr = mov(newGameStructPtr, 0x28); PluginLog.Error($"8 {newGameStructPtr.ToString("X")}");
-                if (newGameStructPtr != IntPtr.Zero)
-                    newGameStructPtr += 0xA8;
-                PluginLog.Error($"{unknownPtr1.ToString("X")} {newGameStructPtr.ToString("X")}");*/
+                NewGamePlusEnable = Marshal.GetDelegateForFunctionPointer<NewGamePlusDelegate>(Interface.TargetModuleScanner.ScanText("48 89 5C 24 08 48 89 74 24 18 57 48 83 EC 30 48 8B 02 48 8B DA 48 8B F9 48 8D 54 24 48 48 8B CB"));
             }
             catch { PrintError("Failed to load /ng+t"); }
 
@@ -414,7 +376,6 @@ namespace OOBlugin
             commandManager.Dispose();
 
             NewGamePlusMenuHook.Dispose();
-            //NewGamePlusHook.Dispose();
 
             Interface.SavePluginConfig(Config);
 
