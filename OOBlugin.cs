@@ -13,7 +13,7 @@ using Dalamud.Hooking;
 using OOBlugin.Attributes;
 
 [assembly: AssemblyTitle("OOBlugin")]
-[assembly: AssemblyVersion("1.0.3.0")]
+[assembly: AssemblyVersion("1.0.4.0")]
 
 namespace OOBlugin
 {
@@ -83,8 +83,12 @@ namespace OOBlugin
 
         private delegate IntPtr GetModuleDelegate(IntPtr basePtr);
         private IntPtr emoteAgent = IntPtr.Zero;
-        private delegate void DoEmoteDelegate(IntPtr a1, uint a2, long a3, bool a4, bool a5);
+        private delegate void DoEmoteDelegate(IntPtr agent, uint emoteID, long a3, bool a4, bool a5);
         private DoEmoteDelegate DoEmote;
+
+        private IntPtr contentsFinderMenuAgent = IntPtr.Zero;
+        private delegate void OpenAbandonDutyDelegate(IntPtr agent);
+        private OpenAbandonDutyDelegate OpenAbandonDuty;
 
         public void Initialize(DalamudPluginInterface p)
         {
@@ -187,11 +191,25 @@ namespace OOBlugin
 
             try
             {
-                DoEmote = Marshal.GetDelegateForFunctionPointer<DoEmoteDelegate>(Interface.TargetModuleScanner.ScanText("E8 ?? ?? ?? ?? E9 ?? ?? ?? ?? B8 0A 00 00 00"));
                 var GetAgentModule = Marshal.GetDelegateForFunctionPointer<GetModuleDelegate>(*((IntPtr*)(*(IntPtr*)uiModule) + 34));
-                emoteAgent = *(IntPtr*)(GetAgentModule(uiModule) + 0x20 + 19 * 0x8); // Client::UI::Agent::AgentModule_GetAgentByInternalID (emote menu is ID 19)
+                var agentModule = GetAgentModule(uiModule);
+                IntPtr GetAgentByInternalID(int id) => *(IntPtr*) (agentModule + 0x20 + id * 0x8); // Client::UI::Agent::AgentModule_GetAgentByInternalID, not going to sig a function this small
+
+                try
+                {
+                    DoEmote = Marshal.GetDelegateForFunctionPointer<DoEmoteDelegate>(Interface.TargetModuleScanner.ScanText("E8 ?? ?? ?? ?? E9 ?? ?? ?? ?? B8 0A 00 00 00"));
+                    emoteAgent = GetAgentByInternalID(19);
+                }
+                catch { PrintError("Failed to load /doemote"); }
+
+                try
+                {
+                    OpenAbandonDuty = Marshal.GetDelegateForFunctionPointer<OpenAbandonDutyDelegate>(Interface.TargetModuleScanner.ScanText("E8 ?? ?? ?? ?? EB 90 48 8B CB"));
+                    contentsFinderMenuAgent = GetAgentByInternalID(222);
+                }
+                catch { PrintError("Failed to load /leaveduty"); }
             }
-            catch { PrintError("Failed to load /doemote"); }
+            catch { PrintError("Failed to get agent module"); }
         }
 
         [Command("/freezegame")]
@@ -309,6 +327,15 @@ namespace OOBlugin
                 DoEmote(emoteAgent, emote, 0, true, true);
             else
                 PrintError("Emote must be specified by a number.");
+        }
+
+        [Command("/leaveduty")]
+        [HelpMessage("Opens the abandon duty prompt, use YesAlready to make it instant.")]
+        private void OnLeaveDuty(string command, string argument)
+        {
+            contentsFinderMenuAgent = (contentsFinderMenuAgent != IntPtr.Zero) ? contentsFinderMenuAgent : Interface.Framework.Gui.FindAgentInterface("ContentsFinderMenu");
+            if (contentsFinderMenuAgent == IntPtr.Zero) { PrintError("Failed to get duty finder agent, please open the duty finder window and then use this command to initialize it."); return; }
+            OpenAbandonDuty(contentsFinderMenuAgent);
         }
 
         public static void PrintEcho(string message) => Interface.Framework.Gui.Chat.Print($"[OOBlugin] {message}");
