@@ -45,17 +45,6 @@ namespace OOBlugin
         private bool sendCtrl = false;
         private bool sendAlt = false;
 
-        private IntPtr unknownPtr1Ptr, newGameUIPtr;
-        private delegate void NewGamePlusMenuDelegate(IntPtr a1);
-        private delegate void NewGamePlusDelegate(IntPtr a1, IntPtr a2, IntPtr a3);
-        private Hook<NewGamePlusMenuDelegate> NewGamePlusMenuHook;
-        private void NewGamePlusMenuDetour(IntPtr a1)
-        {
-            newGameUIPtr = a1 + 0xA8;
-            NewGamePlusMenuHook.Original(a1);
-        }
-        private NewGamePlusDelegate NewGamePlusEnable;
-
         private IntPtr walkingBoolPtr = IntPtr.Zero;
         private float walkTime = 0;
         private unsafe bool IsWalking
@@ -72,6 +61,13 @@ namespace OOBlugin
         }
 
         private delegate IntPtr GetModuleDelegate(IntPtr basePtr);
+
+        private IntPtr newGameUIPtr = IntPtr.Zero;
+        private delegate IntPtr GetUnknownNGPPtrDelegate();
+        private GetUnknownNGPPtrDelegate GetUnknownNGPPtr;
+        private delegate void NewGamePlusActionDelegate(IntPtr a1, IntPtr a2);
+        private NewGamePlusActionDelegate NewGamePlusAction;
+
         private IntPtr emoteAgent = IntPtr.Zero;
         private delegate void DoEmoteDelegate(IntPtr agent, uint emoteID, long a3, bool a4, bool a5);
         private DoEmoteDelegate DoEmote;
@@ -138,16 +134,6 @@ namespace OOBlugin
             }
             catch { PrintError("Failed to load /qexec"); }
 
-            try
-            {
-                NewGamePlusMenuHook = new Hook<NewGamePlusMenuDelegate>(Interface.TargetModuleScanner.ScanText("40 53 48 83 EC 20 48 8B 01 48 8B D9 FF 50 30 84 C0 0F 84"), new NewGamePlusMenuDelegate(NewGamePlusMenuDetour));
-                NewGamePlusMenuHook.Enable();
-
-                unknownPtr1Ptr = Interface.TargetModuleScanner.GetStaticAddressFromSig("48 8B 1D ?? ?? ?? ?? 48 85 DB 74 15 48 8B CB E8 ?? ?? ?? ?? BA D0 00 00 00"); // 48 83 3D ?? ?? ?? ?? ?? 75 33 45 33 C0 33 D2 B9 D0 00 00 00 // apparently returns -1
-                NewGamePlusEnable = Marshal.GetDelegateForFunctionPointer<NewGamePlusDelegate>(Interface.TargetModuleScanner.ScanText("48 89 5C 24 08 48 89 74 24 18 57 48 83 EC 30 48 8B 02 48 8B DA 48 8B F9 48 8D 54 24 48 48 8B CB"));
-            }
-            catch { PrintError("Failed to load /ng+t"); }
-
             try { walkingBoolPtr = Interface.TargetModuleScanner.GetStaticAddressFromSig("88 83 33 05 00 00"); } // also found at g_PlayerMoveController+523
             catch { PrintError("Failed to load /walk"); }
 
@@ -156,6 +142,14 @@ namespace OOBlugin
                 var GetAgentModule = Marshal.GetDelegateForFunctionPointer<GetModuleDelegate>(*((IntPtr*)(*(IntPtr*)uiModule) + 34));
                 var agentModule = GetAgentModule(uiModule);
                 IntPtr GetAgentByInternalID(int id) => *(IntPtr*) (agentModule + 0x20 + id * 0x8); // Client::UI::Agent::AgentModule_GetAgentByInternalID, not going to sig a function this small
+
+                try
+                {
+                    GetUnknownNGPPtr = Marshal.GetDelegateForFunctionPointer<GetUnknownNGPPtrDelegate>(Interface.TargetModuleScanner.ScanText("E8 ?? ?? ?? ?? 80 7B 29 01"));
+                    NewGamePlusAction = Marshal.GetDelegateForFunctionPointer<NewGamePlusActionDelegate>(Interface.TargetModuleScanner.ScanText("48 89 5C 24 08 48 89 74 24 18 57 48 83 EC 30 48 8B 02 48 8B DA 48 8B F9 48 8D 54 24 48 48 8B CB"));
+                    newGameUIPtr = GetAgentByInternalID(333) + 0xA8;
+                }
+                catch { PrintError("Failed to load /ng+t"); }
 
                 try
                 {
@@ -252,22 +246,6 @@ namespace OOBlugin
             }
         }
 
-        [Command("/ng+t")]
-        [HelpMessage("Toggles New Game+.")]
-        private unsafe void OnNGPT(string command, string argument)
-        {
-            if (newGameUIPtr == IntPtr.Zero)
-                ExecuteCommand("/ng+"); // WHYYYYYYYYYYYYYYYYYYYYYYYYYYYYYYYYYYYYYYY
-            if (unknownPtr1Ptr != IntPtr.Zero && newGameUIPtr != IntPtr.Zero)
-            {
-                *(byte*)(newGameUIPtr + 0x8) ^= 1;
-                //PrintEcho($"{(*(IntPtr*)unknownPtr1Ptr).ToString("X")} {newGameUIPtr.ToString("X")}");
-                NewGamePlusEnable(*(IntPtr*)unknownPtr1Ptr, newGameUIPtr, IntPtr.Zero);
-            }
-            else
-                PrintError("Command failed to initialize, please manually suspend or resume NG+.");
-        }
-
         [Command("/walk")]
         [HelpMessage("Toggles RP walk, alternatively, you can specify an amount of time in seconds to walk for.")]
         private void OnWalk(string command, string argument)
@@ -276,6 +254,17 @@ namespace OOBlugin
                 IsWalking = !IsWalking;
             else
                 IsWalking = true;
+        }
+
+        [Command("/ng+t")]
+        [HelpMessage("Toggles New Game+.")]
+        private unsafe void OnNGPT(string command, string argument)
+        {
+            newGameUIPtr = (newGameUIPtr != IntPtr.Zero) ? newGameUIPtr : Interface.Framework.Gui.FindAgentInterface("QuestRedo") + 0xA8;
+            if (newGameUIPtr == IntPtr.Zero) { PrintError("Failed to get NG+ agent, please open the NG+ window and then use this command to initialize it."); return; }
+
+            *(byte*)(newGameUIPtr + 0x8) ^= 1;
+            NewGamePlusAction(GetUnknownNGPPtr(), newGameUIPtr);
         }
 
         [Command("/doemote")]
@@ -374,8 +363,6 @@ namespace OOBlugin
             if (!disposing) return;
 
             commandManager.Dispose();
-
-            NewGamePlusMenuHook.Dispose();
 
             Interface.SavePluginConfig(Config);
 
