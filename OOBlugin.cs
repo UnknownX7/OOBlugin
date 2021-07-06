@@ -6,7 +6,10 @@ using System.Runtime.InteropServices;
 using System.Text;
 using System.Text.RegularExpressions;
 using System.Threading;
+using System.Threading.Tasks;
 using System.Windows.Forms;
+using System.Linq;
+using Dalamud.Game.Internal.Network;
 using ImGuiNET;
 using Dalamud.Plugin;
 using Dalamud.Hooking;
@@ -76,6 +79,11 @@ namespace OOBlugin
         private delegate void OpenAbandonDutyDelegate(IntPtr agent);
         private OpenAbandonDutyDelegate OpenAbandonDuty;
 
+        private IntPtr itemContextMenuAgent = IntPtr.Zero;
+        private delegate void UseItemDelegate(IntPtr itemContextMenuAgent, uint itemID, uint inventoryPage, uint inventorySlot, short a5);
+        private UseItemDelegate UseItem;
+        private Dictionary<uint, string> usables;
+
         public void Initialize(DalamudPluginInterface p)
         {
             Plugin = this;
@@ -93,6 +101,13 @@ namespace OOBlugin
 
             ExtendSendKeys();
             InitializePointers();
+
+            Task.Run(async () =>
+            {
+                while (!Interface.Data.IsDataReady)
+                    await Task.Delay(1000);
+                usables = Interface.Data.GetExcelSheet<Lumina.Excel.GeneratedSheets.Item>(Interface.ClientState.ClientLanguage).Where(i => i.ItemAction.Row > 0).ToDictionary(i => i.RowId, i => i.Name.ToString().ToLower());
+            });
 
             pluginReady = true;
         }
@@ -164,8 +179,44 @@ namespace OOBlugin
                     contentsFinderMenuAgent = GetAgentByInternalID(222);
                 }
                 catch { PrintError("Failed to load /leaveduty"); }
+
+                try
+                {
+                    UseItem = Marshal.GetDelegateForFunctionPointer<UseItemDelegate>(Interface.TargetModuleScanner.ScanText("E8 ?? ?? ?? ?? E9 ?? ?? ?? ?? 41 B0 01 BA 13 00 00 00"));
+                    itemContextMenuAgent = GetAgentByInternalID(10);
+                }
+                catch { PrintError("Failed to load /useitem"); }
             }
             catch { PrintError("Failed to get agent module"); }
+        }
+
+        [Command("/useitem")]
+        [HelpMessage("Uses an item by name or ID.")]
+        private void OnUseItem(string command, string argument)
+        {
+            if (usables == null) return;
+
+            if (!uint.TryParse(argument, out var id))
+            {
+                if (!string.IsNullOrWhiteSpace(argument))
+                {
+                    var name = argument.Replace("\uE03C", ""); // Remove HQ Symbol
+                    var useHQ = argument != name;
+                    name = name.ToLower().Trim(' ');
+                    try { id = usables.First(i => i.Value == name).Key + (uint)(useHQ ? 1_000_000 : 0); }
+                    catch { }
+                }
+            }
+            else
+            {
+                if (!usables.ContainsKey(id > 1_000_000 ? id - 1_000_000 : id))
+                    id = 0;
+            }
+
+            if (id > 0)
+                UseItem(itemContextMenuAgent, id, 9999, 0, 0);
+            else
+                PrintError("Invalid item.");
         }
 
         [Command("/freezegame")]
