@@ -16,7 +16,7 @@ using Dalamud.Hooking;
 using OOBlugin.Attributes;
 
 [assembly: AssemblyTitle("OOBlugin")]
-[assembly: AssemblyVersion("1.0.4.0")]
+[assembly: AssemblyVersion("1.1.0.0")]
 
 namespace OOBlugin
 {
@@ -60,6 +60,18 @@ namespace OOBlugin
                     *(bool*)walkingBoolPtr = value;
                     *(bool*)(walkingBoolPtr - 0x10B) = value; // Autorun
                 }
+            }
+        }
+
+        private bool enableHousingPhysics = false;
+        private IntPtr housingPhysicsBoolPtr = IntPtr.Zero;
+        private unsafe bool IsHousingPhysics
+        {
+            get => housingPhysicsBoolPtr != IntPtr.Zero && *(bool*)housingPhysicsBoolPtr;
+            set
+            {
+                if (housingPhysicsBoolPtr != IntPtr.Zero)
+                    *(bool*)housingPhysicsBoolPtr = value;
             }
         }
 
@@ -188,6 +200,9 @@ namespace OOBlugin
                 catch { PrintError("Failed to load /useitem"); }
             }
             catch { PrintError("Failed to get agent module"); }
+
+            try { housingPhysicsBoolPtr = Interface.TargetModuleScanner.GetStaticAddressFromSig("40 38 35 ?? ?? ?? ?? 74 16"); } // 75 44 40 38 35 ?? ?? ?? ??
+            catch { PrintError("Failed to load /housephysics"); }
         }
 
         [Command("/useitem")]
@@ -340,12 +355,25 @@ namespace OOBlugin
             OpenAbandonDuty(contentsFinderMenuAgent);
         }
 
+        [Command("/housephysics")]
+        [Aliases("/oobshop", "/set0to1instead")]
+        [HelpMessage("Enables housing physics, which allows for void crossing and freeze jumps.")]
+        private void OnHousingPhysics(string command, string argument)
+        {
+            enableHousingPhysics = !enableHousingPhysics;
+            IsHousingPhysics = enableHousingPhysics;
+            PrintEcho("Housing physics are now " + (enableHousingPhysics ? "enabled!" : "disabled!"));
+        }
+
         public static void PrintEcho(string message) => Interface.Framework.Gui.Chat.Print($"[OOBlugin] {message}");
         public static void PrintError(string message) => Interface.Framework.Gui.Chat.PrintError($"[OOBlugin] {message}");
 
         private void Update(Dalamud.Game.Internal.Framework framework)
         {
             if (!pluginReady) return;
+
+            if (enableHousingPhysics && !IsHousingPhysics)
+                IsHousingPhysics = true;
 
             if (!sentKey)
             {
