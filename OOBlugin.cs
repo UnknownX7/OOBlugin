@@ -16,7 +16,7 @@ using Dalamud.Hooking;
 using OOBlugin.Attributes;
 
 [assembly: AssemblyTitle("OOBlugin")]
-[assembly: AssemblyVersion("1.1.0.1")]
+[assembly: AssemblyVersion("1.1.0.2")]
 
 namespace OOBlugin
 {
@@ -355,10 +355,10 @@ namespace OOBlugin
             OpenAbandonDuty(contentsFinderMenuAgent);
         }
 
-        [Command("/alternatephysics")]
+        [Command("/altphysics")]
         [Aliases("/oobshop", "/set0to1instead")]
         [HelpMessage("Enables alternate physics (used in housing / duties), which allows for void crossing and freeze jumps.")]
-        private void OnAlternatePhysics(string command, string argument)
+        private void OnAltPhysics(string command, string argument)
         {
             enableAlternatePhysics = !enableAlternatePhysics;
             IsAlternatePhysics = enableAlternatePhysics;
