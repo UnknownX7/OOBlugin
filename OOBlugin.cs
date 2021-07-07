@@ -16,7 +16,7 @@ using Dalamud.Hooking;
 using OOBlugin.Attributes;
 
 [assembly: AssemblyTitle("OOBlugin")]
-[assembly: AssemblyVersion("1.1.0.0")]
+[assembly: AssemblyVersion("1.1.0.1")]
 
 namespace OOBlugin
 {
@@ -63,15 +63,15 @@ namespace OOBlugin
             }
         }
 
-        private bool enableHousingPhysics = false;
-        private IntPtr housingPhysicsBoolPtr = IntPtr.Zero;
-        private unsafe bool IsHousingPhysics
+        private bool enableAlternatePhysics = false;
+        private IntPtr alternatePhysicsBoolPtr = IntPtr.Zero;
+        private unsafe bool IsAlternatePhysics
         {
-            get => housingPhysicsBoolPtr != IntPtr.Zero && *(bool*)housingPhysicsBoolPtr;
+            get => alternatePhysicsBoolPtr != IntPtr.Zero && *(bool*)alternatePhysicsBoolPtr;
             set
             {
-                if (housingPhysicsBoolPtr != IntPtr.Zero)
-                    *(bool*)housingPhysicsBoolPtr = value;
+                if (alternatePhysicsBoolPtr != IntPtr.Zero)
+                    *(bool*)alternatePhysicsBoolPtr = value;
             }
         }
 
@@ -201,8 +201,8 @@ namespace OOBlugin
             }
             catch { PrintError("Failed to get agent module"); }
 
-            try { housingPhysicsBoolPtr = Interface.TargetModuleScanner.GetStaticAddressFromSig("40 38 35 ?? ?? ?? ?? 74 16"); } // 75 44 40 38 35 ?? ?? ?? ??
-            catch { PrintError("Failed to load /housephysics"); }
+            try { alternatePhysicsBoolPtr = Interface.TargetModuleScanner.GetStaticAddressFromSig("40 38 35 ?? ?? ?? ?? 74 16"); } // 75 44 40 38 35 ?? ?? ?? ??
+            catch { PrintError("Failed to load /alternatephysics"); }
         }
 
         [Command("/useitem")]
@@ -355,14 +355,14 @@ namespace OOBlugin
             OpenAbandonDuty(contentsFinderMenuAgent);
         }
 
-        [Command("/housephysics")]
+        [Command("/alternatephysics")]
         [Aliases("/oobshop", "/set0to1instead")]
-        [HelpMessage("Enables housing physics, which allows for void crossing and freeze jumps.")]
-        private void OnHousingPhysics(string command, string argument)
+        [HelpMessage("Enables alternate physics (used in housing / duties), which allows for void crossing and freeze jumps.")]
+        private void OnAlternatePhysics(string command, string argument)
         {
-            enableHousingPhysics = !enableHousingPhysics;
-            IsHousingPhysics = enableHousingPhysics;
-            PrintEcho("Housing physics are now " + (enableHousingPhysics ? "enabled!" : "disabled!"));
+            enableAlternatePhysics = !enableAlternatePhysics;
+            IsAlternatePhysics = enableAlternatePhysics;
+            PrintEcho("Alternate physics are now " + (enableAlternatePhysics ? "enabled!" : "disabled!"));
         }
 
         public static void PrintEcho(string message) => Interface.Framework.Gui.Chat.Print($"[OOBlugin] {message}");
@@ -372,8 +372,8 @@ namespace OOBlugin
         {
             if (!pluginReady) return;
 
-            if (enableHousingPhysics && !IsHousingPhysics)
-                IsHousingPhysics = true;
+            if (enableAlternatePhysics && !IsAlternatePhysics)
+                IsAlternatePhysics = true;
 
             if (!sentKey)
             {
