@@ -1,27 +1,22 @@
 ﻿using Dalamud.Game.Command;
 using Dalamud.Plugin;
-using OOBlugin.Attributes;
 using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Reflection;
 using static Dalamud.Game.Command.CommandInfo;
-// ReSharper disable ForCanBeConvertedToForeach
 
 namespace OOBlugin
 {
-    public class PluginCommandManager<THost> : IDisposable
+    public class PluginCommandManager : IDisposable
     {
-        private readonly DalamudPluginInterface pluginInterface;
+        private DalamudPluginInterface Interface => OOBlugin.Interface;
         private readonly (string, CommandInfo)[] pluginCommands;
-        private readonly THost host;
+        private OOBlugin Host => OOBlugin.Plugin;
 
-        public PluginCommandManager(THost host, DalamudPluginInterface pluginInterface)
+        public PluginCommandManager()
         {
-            this.pluginInterface = pluginInterface;
-            this.host = host;
-
-            this.pluginCommands = host.GetType().GetMethods(BindingFlags.NonPublic | BindingFlags.Public | BindingFlags.Static | BindingFlags.Instance)
+            this.pluginCommands = Host.GetType().GetMethods(BindingFlags.NonPublic | BindingFlags.Public | BindingFlags.Static | BindingFlags.Instance)
                 .Where(method => method.GetCustomAttribute<CommandAttribute>() != null)
                 .SelectMany(GetCommandInfoTuple)
                 .ToArray();
@@ -29,16 +24,12 @@ namespace OOBlugin
             AddCommandHandlers();
         }
 
-        // http://codebetter.com/patricksmacchia/2008/11/19/an-easy-and-efficient-way-to-improve-net-code-performances/
-        // Benchmarking this myself gave similar results, so I'm doing this to somewhat counteract using reflection to access command attributes.
-        // I like the convenience of attributes, but in principle it's a bit slower to use them as opposed to just initializing CommandInfos directly.
-        // It's usually sub-1 millisecond anyways, though. It probably doesn't matter at all.
         private void AddCommandHandlers()
         {
             for (var i = 0; i < this.pluginCommands.Length; i++)
             {
                 var (command, commandInfo) = this.pluginCommands[i];
-                this.pluginInterface.CommandManager.AddHandler(command, commandInfo);
+                this.Interface.CommandManager.AddHandler(command, commandInfo);
             }
         }
 
@@ -47,13 +38,13 @@ namespace OOBlugin
             for (var i = 0; i < this.pluginCommands.Length; i++)
             {
                 var (command, _) = this.pluginCommands[i];
-                this.pluginInterface.CommandManager.RemoveHandler(command);
+                this.Interface.CommandManager.RemoveHandler(command);
             }
         }
 
         private IEnumerable<(string, CommandInfo)> GetCommandInfoTuple(MethodInfo method)
         {
-            var handlerDelegate = (HandlerDelegate)Delegate.CreateDelegate(typeof(HandlerDelegate), this.host, method);
+            var handlerDelegate = (HandlerDelegate)Delegate.CreateDelegate(typeof(HandlerDelegate), this.Host, method);
 
             var command = handlerDelegate.Method.GetCustomAttribute<CommandAttribute>();
             var aliases = handlerDelegate.Method.GetCustomAttribute<AliasesAttribute>();
@@ -70,7 +61,6 @@ namespace OOBlugin
             var commandInfoTuples = new List<(string, CommandInfo)> { (command.Command, commandInfo) };
             if (aliases != null)
             {
-                // ReSharper disable once LoopCanBeConvertedToQuery
                 for (var i = 0; i < aliases.Aliases.Length; i++)
                 {
                     commandInfoTuples.Add((aliases.Aliases[i], commandInfo));
@@ -85,4 +75,44 @@ namespace OOBlugin
             RemoveCommandHandlers();
         }
     }
+
+    #region Attributes
+    [AttributeUsage(AttributeTargets.Method)]
+    public class AliasesAttribute : Attribute
+    {
+        public string[] Aliases { get; }
+
+        public AliasesAttribute(params string[] aliases)
+        {
+            Aliases = aliases;
+        }
+    }
+
+    [AttributeUsage(AttributeTargets.Method)]
+    public class CommandAttribute : Attribute
+    {
+        public string Command { get; }
+
+        public CommandAttribute(string command)
+        {
+            Command = command;
+        }
+    }
+
+    [AttributeUsage(AttributeTargets.Method)]
+    public class DoNotShowInHelpAttribute : Attribute
+    {
+    }
+
+    [AttributeUsage(AttributeTargets.Method)]
+    public class HelpMessageAttribute : Attribute
+    {
+        public string HelpMessage { get; }
+
+        public HelpMessageAttribute(string helpMessage)
+        {
+            HelpMessage = helpMessage;
+        }
+    }
+    #endregion
 }

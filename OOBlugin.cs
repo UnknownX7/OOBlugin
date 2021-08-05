@@ -9,14 +9,14 @@ using System.Threading;
 using System.Threading.Tasks;
 using System.Windows.Forms;
 using System.Linq;
+using Dalamud;
 using Dalamud.Game.Internal.Network;
 using ImGuiNET;
 using Dalamud.Plugin;
 using Dalamud.Hooking;
-using OOBlugin.Attributes;
 
 [assembly: AssemblyTitle("OOBlugin")]
-[assembly: AssemblyVersion("1.1.0.2")]
+[assembly: AssemblyVersion("1.1.1.0")]
 
 namespace OOBlugin
 {
@@ -25,14 +25,14 @@ namespace OOBlugin
         public string Name => "OOBlugin";
 
         public static DalamudPluginInterface Interface { get; private set; }
-        private PluginCommandManager<OOBlugin> commandManager;
+        private PluginCommandManager commandManager;
         public static Configuration Config { get; private set; }
         public static OOBlugin Plugin { get; private set; }
         private PluginUI ui;
 
         private bool pluginReady = false;
 
-        private readonly Stopwatch timer = new Stopwatch();
+        private readonly Stopwatch timer = new();
         private int fpsLock = 0;
         private float fpsLockTime = 0;
 
@@ -41,7 +41,7 @@ namespace OOBlugin
         private ProcessChatBoxDelegate ProcessChatBox;
         private static IntPtr uiModule = IntPtr.Zero;
 
-        private readonly List<string> quickExecuteQueue = new List<string>();
+        private readonly List<string> quickExecuteQueue = new();
 
         private bool sentKey = false;
         private bool sendShift = false;
@@ -96,6 +96,17 @@ namespace OOBlugin
         private UseItemDelegate UseItem;
         private Dictionary<uint, string> usables;
 
+        private IntPtr actionCommandRequestTypePtr = IntPtr.Zero;
+        public unsafe byte ActionCommandRequestType
+        {
+            get => *(byte*)actionCommandRequestTypePtr;
+            set
+            {
+                if (actionCommandRequestTypePtr != IntPtr.Zero)
+                    SafeMemory.WriteBytes(actionCommandRequestTypePtr, new[] { value });
+            }
+        }
+
         public void Initialize(DalamudPluginInterface p)
         {
             Plugin = this;
@@ -109,7 +120,8 @@ namespace OOBlugin
             ui = new PluginUI();
             Interface.UiBuilder.OnBuildUi += Draw;
 
-            commandManager = new PluginCommandManager<OOBlugin>(this, Interface);
+            //Interface.Framework.Network.OnNetworkMessage += OnNetworkMessage;
+            commandManager = new PluginCommandManager();
 
             ExtendSendKeys();
             InitializePointers();
@@ -168,7 +180,7 @@ namespace OOBlugin
             {
                 var GetAgentModule = Marshal.GetDelegateForFunctionPointer<GetModuleDelegate>(*((IntPtr*)(*(IntPtr*)uiModule) + 34));
                 var agentModule = GetAgentModule(uiModule);
-                IntPtr GetAgentByInternalID(int id) => *(IntPtr*) (agentModule + 0x20 + id * 0x8); // Client::UI::Agent::AgentModule_GetAgentByInternalID, not going to sig a function this small
+                IntPtr GetAgentByInternalID(int id) => *(IntPtr*)(agentModule + 0x20 + id * 0x8); // Client::UI::Agent::AgentModule_GetAgentByInternalID, not going to sig a function this small
 
                 try
                 {
@@ -203,6 +215,9 @@ namespace OOBlugin
 
             try { alternatePhysicsBoolPtr = Interface.TargetModuleScanner.GetStaticAddressFromSig("40 38 35 ?? ?? ?? ?? 74 16"); } // 75 44 40 38 35 ?? ?? ?? ??
             catch { PrintError("Failed to load /alternatephysics"); }
+
+            try { actionCommandRequestTypePtr = Interface.TargetModuleScanner.ScanText("02 00 00 00 45 8B C5 89"); } // Located 1 function deep in Client__UI__Shell__ShellCommandAction_ExecuteCommand
+            catch { PrintError("Failed to load /qac"); }
         }
 
         [Command("/useitem")]
@@ -235,6 +250,7 @@ namespace OOBlugin
         }
 
         [Command("/freezegame")]
+        [Aliases("/frz")]
         [HelpMessage("Freezes the game for the amount of time specified in seconds, up to 60. Defaults to 0.5.")]
         private void OnFreezeGame(string command, string argument)
         {
@@ -242,10 +258,6 @@ namespace OOBlugin
                 time = 0.5f;
             Thread.Sleep((int)(Math.Min(time, 60) * 1000));
         }
-
-        [Command("/frz")]
-        [HelpMessage("Alias of \"/freezegame\".")]
-        private void OnFrz(string command, string argument) => OnFreezeGame(command, argument);
 
         [Command("/proc")]
         [HelpMessage("Starts a process at the specified path.")]
@@ -363,6 +375,17 @@ namespace OOBlugin
             enableAlternatePhysics = !enableAlternatePhysics;
             IsAlternatePhysics = enableAlternatePhysics;
             PrintEcho("Alternate physics are now " + (enableAlternatePhysics ? "enabled!" : "disabled!"));
+        }
+
+        [Command("/qac")]
+        [HelpMessage("/ac but it can queue.")]
+        private void OnQueueAction(string command, string argument)
+        {
+            if (actionCommandRequestTypePtr == IntPtr.Zero) return;
+
+            ActionCommandRequestType = 0;
+            ExecuteCommand("/ac " + argument.Replace(" ", "\"").Replace(" ", "\"")); // big mood (auto-translate)
+            ActionCommandRequestType = 2;
         }
 
         public static void PrintEcho(string message) => Interface.Framework.Gui.Chat.Print($"[OOBlugin] {message}");
