@@ -16,7 +16,7 @@ using Dalamud.Plugin;
 using Dalamud.Hooking;
 
 [assembly: AssemblyTitle("OOBlugin")]
-[assembly: AssemblyVersion("1.1.1.0")]
+[assembly: AssemblyVersion("1.1.1.1")]
 
 namespace OOBlugin
 {
@@ -130,7 +130,9 @@ namespace OOBlugin
             {
                 while (!Interface.Data.IsDataReady)
                     await Task.Delay(1000);
-                usables = Interface.Data.GetExcelSheet<Lumina.Excel.GeneratedSheets.Item>(Interface.ClientState.ClientLanguage).Where(i => i.ItemAction.Row > 0).ToDictionary(i => i.RowId, i => i.Name.ToString().ToLower());
+                usables = Interface.Data.GetExcelSheet<Lumina.Excel.GeneratedSheets.Item>().Where(i => i.ItemAction.Row > 0).ToDictionary(i => i.RowId, i => i.Name.ToString().ToLower())
+                    .Concat(Interface.Data.GetExcelSheet<Lumina.Excel.GeneratedSheets.EventItem>().Where(i => i.Action.Row > 0).ToDictionary(i => i.RowId, i => i.Name.ToString().ToLower()))
+                    .ToDictionary(kv => kv.Key, kv => kv.Value);
             });
 
             pluginReady = true;
@@ -239,7 +241,7 @@ namespace OOBlugin
             }
             else
             {
-                if (!usables.ContainsKey(id > 1_000_000 ? id - 1_000_000 : id))
+                if (!usables.ContainsKey(id is >= 1_000_000 and < 2_000_000 ? id - 1_000_000 : id))
                     id = 0;
             }
 
