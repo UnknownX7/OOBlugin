@@ -1,6 +1,4 @@
 ﻿using Dalamud.Configuration;
-using Dalamud.Plugin;
-using Newtonsoft.Json;
 
 namespace OOBlugin
 {
@@ -8,16 +6,8 @@ namespace OOBlugin
     {
         public int Version { get; set; }
 
-        [JsonIgnore] private DalamudPluginInterface pluginInterface;
+        public void Initialize() { }
 
-        public void Initialize(DalamudPluginInterface pluginInterface)
-        {
-            this.pluginInterface = pluginInterface;
-        }
-
-        public void Save()
-        {
-            this.pluginInterface.SavePluginConfig(this);
-        }
+        public void Save() => DalamudApi.PluginInterface.SavePluginConfig(this);
     }
 }
