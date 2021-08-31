@@ -18,7 +18,7 @@ namespace OOBlugin
     {
         public string Name => "OOBlugin";
         public static OOBlugin Plugin { get; private set; }
-        public static Configuration Config { get; private set; }
+        //public static Configuration Config { get; private set; }
 
         private readonly bool pluginReady = false;
 
@@ -41,8 +41,8 @@ namespace OOBlugin
             Plugin = this;
             DalamudApi.Initialize(this, pluginInterface);
 
-            Config = (Configuration)DalamudApi.PluginInterface.GetPluginConfig() ?? new();
-            Config.Initialize();
+            //Config = (Configuration)DalamudApi.PluginInterface.GetPluginConfig() ?? new();
+            //Config.Initialize();
 
             DalamudApi.Framework.Update += Update;
 
@@ -319,7 +319,7 @@ namespace OOBlugin
         {
             if (!disposing) return;
 
-            Config.Save();
+            //Config.Save();
 
             DalamudApi.Framework.Update -= Update;
 
