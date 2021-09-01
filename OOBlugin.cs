@@ -1,6 +1,7 @@
 using System;
 using System.Collections.Generic;
 using System.Diagnostics;
+using System.IO;
 using System.Runtime.InteropServices;
 using System.Text;
 using System.Text.RegularExpressions;
@@ -104,7 +105,12 @@ namespace OOBlugin
         private void OnProc(string command, string argument)
         {
             if (Regex.IsMatch(argument, @"^.:\\"))
-                Process.Start(argument);
+                Process.Start(new ProcessStartInfo
+                {
+                    FileName = argument,
+                    WorkingDirectory = Path.GetDirectoryName(argument)!,
+                    UseShellExecute = true
+                });
             else
                 PrintError("Command must start with \"?:\\\" where ? is a drive letter.");
         }
