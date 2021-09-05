@@ -35,7 +35,6 @@ namespace OOBlugin
         private static readonly List<string> quickExecuteQueue = new();
         private static Dictionary<uint, string> usables;
         private static float walkTime = 0;
-        private static bool enableAlternatePhysics = false;
 
         public OOBlugin(DalamudPluginInterface pluginInterface)
         {
@@ -234,16 +233,6 @@ namespace OOBlugin
             Game.OpenAbandonDuty(Game.contentsFinderMenuAgent);
         }
 
-        [Command("/altphysics")]
-        [Aliases("/oobshop", "/set0to1instead")]
-        [HelpMessage("Enables alternate physics (used in housing / duties), which allows for void crossing and freeze jumps.")]
-        private void OnAltPhysics(string command, string argument)
-        {
-            enableAlternatePhysics ^= true;
-            Game.IsAlternatePhysics = enableAlternatePhysics;
-            PrintEcho("Alternate physics are now " + (enableAlternatePhysics ? "enabled!" : "disabled!"));
-        }
-
         [Command("/qac")]
         [HelpMessage("/ac but it can queue.")]
         private void OnQueueAction(string command, string argument)
@@ -261,9 +250,6 @@ namespace OOBlugin
         private void Update(Framework framework)
         {
             if (!pluginReady) return;
-
-            if (enableAlternatePhysics && !Game.IsAlternatePhysics)
-                Game.IsAlternatePhysics = true;
 
             if (!sentKey)
             {

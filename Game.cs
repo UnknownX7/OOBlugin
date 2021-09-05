@@ -1,4 +1,4 @@
-﻿using System;
+using System;
 using System.Runtime.InteropServices;
 using Dalamud;
 using static OOBlugin.OOBlugin;
@@ -22,17 +22,6 @@ namespace OOBlugin
                     *(bool*)walkingBoolPtr = value;
                     *(bool*)(walkingBoolPtr - 0x10B) = value; // Autorun
                 }
-            }
-        }
-
-        private static IntPtr alternatePhysicsBoolPtr = IntPtr.Zero;
-        public static bool IsAlternatePhysics
-        {
-            get => alternatePhysicsBoolPtr != IntPtr.Zero && *(bool*)alternatePhysicsBoolPtr;
-            set
-            {
-                if (alternatePhysicsBoolPtr != IntPtr.Zero)
-                    *(bool*)alternatePhysicsBoolPtr = value;
             }
         }
 
@@ -148,9 +137,6 @@ namespace OOBlugin
                 catch { PrintError("Failed to load /useitem"); }
             }
             catch { PrintError("Failed to get agent module"); }
-
-            try { alternatePhysicsBoolPtr = DalamudApi.SigScanner.GetStaticAddressFromSig("40 38 35 ?? ?? ?? ?? 74 16"); } // 75 44 40 38 35 ?? ?? ?? ??
-            catch { PrintError("Failed to load /alternatephysics"); }
 
             try { actionCommandRequestTypePtr = DalamudApi.SigScanner.ScanText("02 00 00 00 45 8B C5 89"); } // Located 1 function deep in Client__UI__Shell__ShellCommandAction_ExecuteCommand
             catch { PrintError("Failed to load /qac"); }
