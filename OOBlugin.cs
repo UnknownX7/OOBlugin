@@ -234,14 +234,26 @@ namespace OOBlugin
         }
 
         [Command("/qac")]
-        [HelpMessage("/ac but it can queue.")]
+        [HelpMessage("/ac but it can queue. Use it with the action ID to force normally unqueueable actions into the queue (e.g. \"/qac 3\" = Sprint), however this method does not support target arguments (<f>, <tt>, <mo>, etc).")]
         private void OnQueueAction(string command, string argument)
         {
             if (Game.actionCommandRequestTypePtr == IntPtr.Zero) return;
 
-            Game.ActionCommandRequestType = 0;
-            ExecuteCommand("/ac " + argument.Replace(" ", "\"").Replace(" ", "\"")); // big mood (auto-translate)
-            Game.ActionCommandRequestType = 2;
+            if (!uint.TryParse(argument, out var id))
+            {
+                Game.ActionCommandRequestType = 0;
+                ExecuteCommand("/ac " + argument.Replace(" ", "\"").Replace(" ", "\"")); // big mood (auto-translate)
+                Game.ActionCommandRequestType = 2;
+            }
+            else if (!Game.IsQueued)
+            {
+                Game.IsQueued = true;
+                Game.QueuedActionType = 1;
+                Game.QueuedAction = id;
+                Game.QueuedTarget = DalamudApi.TargetManager.Target is {} actor ? actor.ObjectId : 0;
+                Game.QueuedUseType = 0;
+                Game.QueuedPVPAction = 0;
+            }
         }
 
         public static void PrintEcho(string message) => DalamudApi.ChatGui.Print($"[OOBlugin] {message}");

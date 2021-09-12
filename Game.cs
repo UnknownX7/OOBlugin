@@ -89,6 +89,14 @@ namespace OOBlugin
             return true;
         }
 
+        public static IntPtr ActionManager;
+        public static ref bool IsQueued => ref *(bool*)(ActionManager + 0x68);
+        public static ref uint QueuedActionType => ref *(uint*)(ActionManager + 0x6C);
+        public static ref uint QueuedAction => ref *(uint*)(ActionManager + 0x70);
+        public static ref long QueuedTarget => ref *(long*)(ActionManager + 0x78);
+        public static ref uint QueuedUseType => ref *(uint*)(ActionManager + 0x80);
+        public static ref uint QueuedPVPAction => ref *(uint*)(ActionManager + 0x84);
+
         public static void Initialize()
         {
             try
@@ -147,6 +155,9 @@ namespace OOBlugin
                 keyStateIndexArray = (byte*)(DalamudApi.SigScanner.Module.BaseAddress + *(int*)(DalamudApi.SigScanner.ScanModule("0F B6 94 33 ?? ?? ?? ?? 84 D2") + 4));
             }
             catch { PrintError("Failed to load /sendkey!"); }
+
+            try { ActionManager = DalamudApi.SigScanner.GetStaticAddressFromSig("41 0F B7 57 04"); } // g_ActionManager
+            catch { PrintError("Failed to load ActionManager!"); }
         }
 
         public static void Dispose()
