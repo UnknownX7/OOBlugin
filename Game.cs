@@ -1,6 +1,7 @@
 using System;
 using System.Runtime.InteropServices;
 using Dalamud;
+using FFXIVClientStructs.FFXIV.Client.System.Framework;
 using static OOBlugin.OOBlugin;
 
 namespace OOBlugin
@@ -89,6 +90,9 @@ namespace OOBlugin
             return true;
         }
 
+        // cmp byte ptr [r15+33h], 6 -> test byte ptr [r15+3Ah], 10
+        public static readonly Memory.Replacer enhancedAutoFaceTarget = new("41 80 7F 33 06 75 1E 48 8D 0D", new byte[] { 0x41, 0xF6, 0x47, 0x3A, 0x10 }, Config.EnhancedAutoFaceTarget);
+
         public static IntPtr ActionManager;
         public static ref bool IsQueued => ref *(bool*)(ActionManager + 0x68);
         public static ref uint QueuedActionType => ref *(uint*)(ActionManager + 0x6C);
@@ -106,47 +110,45 @@ namespace OOBlugin
             }
             catch { PrintError("Failed to load /qexec"); }
 
-            try { walkingBoolPtr = DalamudApi.SigScanner.GetStaticAddressFromSig("88 83 33 05 00 00"); } // also found at g_PlayerMoveController+523
+            try { walkingBoolPtr = DalamudApi.SigScanner.GetStaticAddressFromSig("88 83 ?? ?? ?? ?? 0F B6 05 ?? ?? ?? ?? 88 83"); } // also found around g_PlayerMoveController+523
             catch { PrintError("Failed to load /walk"); }
 
             try
             {
-                var GetAgentModule = Marshal.GetDelegateForFunctionPointer<GetModuleDelegate>(*((IntPtr*)(*(IntPtr*)uiModule) + 34));
-                var agentModule = GetAgentModule(uiModule);
-                IntPtr GetAgentByInternalID(int id) => *(IntPtr*)(agentModule + 0x20 + id * 0x8); // Client::UI::Agent::AgentModule_GetAgentByInternalID, not going to sig a function this small
+                var agentModule = Framework.Instance()->GetUiModule()->GetAgentModule();
 
                 try
                 {
                     GetUnknownNGPPtr = Marshal.GetDelegateForFunctionPointer<GetUnknownNGPPtrDelegate>(DalamudApi.SigScanner.ScanText("E8 ?? ?? ?? ?? 80 7B 29 01"));
                     NewGamePlusAction = Marshal.GetDelegateForFunctionPointer<NewGamePlusActionDelegate>(DalamudApi.SigScanner.ScanText("48 89 5C 24 08 48 89 74 24 18 57 48 83 EC 30 48 8B 02 48 8B DA 48 8B F9 48 8D 54 24 48 48 8B CB"));
-                    newGameUIPtr = GetAgentByInternalID(333) + 0xA8;
+                    newGameUIPtr = (IntPtr)agentModule->GetAgentByInternalID(335) + 0xA8;
                 }
                 catch { PrintError("Failed to load /ng+t"); }
 
                 try
                 {
                     DoEmote = Marshal.GetDelegateForFunctionPointer<DoEmoteDelegate>(DalamudApi.SigScanner.ScanText("E8 ?? ?? ?? ?? E9 ?? ?? ?? ?? B8 0A 00 00 00"));
-                    emoteAgent = GetAgentByInternalID(19);
+                    emoteAgent = (IntPtr)agentModule->GetAgentByInternalID(19);
                 }
                 catch { PrintError("Failed to load /doemote"); }
 
                 try
                 {
                     OpenAbandonDuty = Marshal.GetDelegateForFunctionPointer<OpenAbandonDutyDelegate>(DalamudApi.SigScanner.ScanText("E8 ?? ?? ?? ?? EB 90 48 8B CB"));
-                    contentsFinderMenuAgent = GetAgentByInternalID(222);
+                    contentsFinderMenuAgent = (IntPtr)agentModule->GetAgentByInternalID(223);
                 }
                 catch { PrintError("Failed to load /leaveduty"); }
 
                 try
                 {
                     UseItem = Marshal.GetDelegateForFunctionPointer<UseItemDelegate>(DalamudApi.SigScanner.ScanText("E8 ?? ?? ?? ?? E9 ?? ?? ?? ?? 41 B0 01 BA 13 00 00 00"));
-                    itemContextMenuAgent = GetAgentByInternalID(10);
+                    itemContextMenuAgent = (IntPtr)agentModule->GetAgentByInternalID(10);
                 }
                 catch { PrintError("Failed to load /useitem"); }
             }
             catch { PrintError("Failed to get agent module"); }
 
-            try { actionCommandRequestTypePtr = DalamudApi.SigScanner.ScanText("02 00 00 00 45 8B C5 89"); } // Located 1 function deep in Client__UI__Shell__ShellCommandAction_ExecuteCommand
+            try { actionCommandRequestTypePtr = DalamudApi.SigScanner.ScanText("02 00 00 00 41 8B D7 89"); } // Located 1 function deep in Client__UI__Shell__ShellCommandAction_ExecuteCommand
             catch { PrintError("Failed to load /qac"); }
 
             try
@@ -156,7 +158,7 @@ namespace OOBlugin
             }
             catch { PrintError("Failed to load /sendkey!"); }
 
-            try { ActionManager = DalamudApi.SigScanner.GetStaticAddressFromSig("41 0F B7 57 04"); } // g_ActionManager
+            try { ActionManager = (IntPtr)FFXIVClientStructs.FFXIV.Client.Game.ActionManager.Instance(); }
             catch { PrintError("Failed to load ActionManager!"); }
         }
 

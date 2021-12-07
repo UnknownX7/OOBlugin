@@ -6,6 +6,8 @@ namespace OOBlugin
     {
         public int Version { get; set; }
 
+        public bool EnhancedAutoFaceTarget = false;
+
         public void Initialize() { }
 
         public void Save() => DalamudApi.PluginInterface.SavePluginConfig(this);
