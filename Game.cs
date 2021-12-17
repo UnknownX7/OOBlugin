@@ -90,9 +90,6 @@ namespace OOBlugin
             return true;
         }
 
-        // cmp byte ptr [r15+33h], 6 -> test byte ptr [r15+3Ah], 10
-        public static readonly Memory.Replacer enhancedAutoFaceTarget = new("41 80 7F 33 06 75 1E 48 8D 0D", new byte[] { 0x41, 0xF6, 0x47, 0x3A, 0x10 }, Config.EnhancedAutoFaceTarget);
-
         public static IntPtr ActionManager;
         public static ref bool IsQueued => ref *(bool*)(ActionManager + 0x68);
         public static ref uint QueuedActionType => ref *(uint*)(ActionManager + 0x6C);

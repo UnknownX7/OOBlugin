@@ -19,7 +19,7 @@ namespace OOBlugin
     {
         public string Name => "OOBlugin";
         public static OOBlugin Plugin { get; private set; }
-        public static Configuration Config { get; private set; }
+        //public static Configuration Config { get; private set; }
 
         private readonly bool pluginReady = false;
 
@@ -41,8 +41,8 @@ namespace OOBlugin
             Plugin = this;
             DalamudApi.Initialize(this, pluginInterface);
 
-            Config = (Configuration)DalamudApi.PluginInterface.GetPluginConfig() ?? new();
-            Config.Initialize();
+            //Config = (Configuration)DalamudApi.PluginInterface.GetPluginConfig() ?? new();
+            //Config.Initialize();
 
             DalamudApi.Framework.Update += Update;
 
@@ -256,16 +256,6 @@ namespace OOBlugin
             }
         }
 
-        [Command("/enhancedautofacetarget")]
-        [HelpMessage("Does not face targets unless the action requires it when the Character Configuration option is enabled.")]
-        private void OnEnhancedAutoFaceTarget(string command, string argument)
-        {
-            Config.EnhancedAutoFaceTarget ^= true;
-            Game.enhancedAutoFaceTarget.Toggle();
-            Config.Save();
-            PrintEcho($"Enhaced Auto Face Target is now {(Game.enhancedAutoFaceTarget.IsEnabled ? "enabled" : "disabled")}.");
-        }
-
         public static void PrintEcho(string message) => DalamudApi.ChatGui.Print($"[OOBlugin] {message}");
         public static void PrintError(string message) => DalamudApi.ChatGui.PrintError($"[OOBlugin] {message}");
 
@@ -333,7 +323,7 @@ namespace OOBlugin
         {
             if (!disposing) return;
 
-            Config.Save();
+            //Config.Save();
 
             DalamudApi.Framework.Update -= Update;
 
