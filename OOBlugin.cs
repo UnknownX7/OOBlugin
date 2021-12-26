@@ -101,17 +101,26 @@ namespace OOBlugin
 
         [Command("/proc")]
         [HelpMessage("Starts a process at the specified path.")]
-        private void OnProc(string command, string argument)
+        private void OnProc(string command, string argument) => StartProcess(argument, false);
+
+        [Command("/procadmin")]
+        [HelpMessage("Starts a process at the specified path as admin.")]
+        private void OnProcAdmin(string command, string argument) => StartProcess(argument, true);
+
+        private void StartProcess(string argument, bool admin)
         {
             if (Regex.IsMatch(argument, @"^.:\\"))
                 Process.Start(new ProcessStartInfo
                 {
                     FileName = argument,
                     WorkingDirectory = Path.GetDirectoryName(argument)!,
-                    UseShellExecute = true
+                    UseShellExecute = true,
+                    Verb = admin ? "runas" : string.Empty
                 });
             else
+            {
                 PrintError("Command must start with \"?:\\\" where ? is a drive letter.");
+            }
         }
 
         [Command("/capfps")]
@@ -125,7 +134,9 @@ namespace OOBlugin
                 _ = float.TryParse(reg.Groups[2].Value, out fpsLockTime);
             }
             else
+            {
                 PrintError("Invalid usage.");
+            }
         }
 
         [Command("/qexec")]
@@ -139,7 +150,9 @@ namespace OOBlugin
                 quickExecuteQueue.Clear();
             }
             else
+            {
                 quickExecuteQueue.Add(argument);
+            }
         }
 
         [Command("/sendkey")]
