@@ -2,6 +2,7 @@ using System;
 using System.Runtime.InteropServices;
 using Dalamud;
 using FFXIVClientStructs.FFXIV.Client.System.Framework;
+using FFXIVClientStructs.FFXIV.Client.UI.Agent;
 using static OOBlugin.OOBlugin;
 
 namespace OOBlugin
@@ -118,28 +119,28 @@ namespace OOBlugin
                 {
                     GetUnknownNGPPtr = Marshal.GetDelegateForFunctionPointer<GetUnknownNGPPtrDelegate>(DalamudApi.SigScanner.ScanText("E8 ?? ?? ?? ?? 80 7B 29 01"));
                     NewGamePlusAction = Marshal.GetDelegateForFunctionPointer<NewGamePlusActionDelegate>(DalamudApi.SigScanner.ScanText("48 89 5C 24 08 48 89 74 24 18 57 48 83 EC 30 48 8B 02 48 8B DA 48 8B F9 48 8D 54 24 48 48 8B CB"));
-                    newGameUIPtr = (IntPtr)agentModule->GetAgentByInternalID(335) + 0xA8;
+                    newGameUIPtr = (IntPtr)agentModule->GetAgentByInternalId(AgentId.QuestRedo) + 0xA8;
                 }
                 catch { PrintError("Failed to load /ng+t"); }
 
                 try
                 {
                     DoEmote = Marshal.GetDelegateForFunctionPointer<DoEmoteDelegate>(DalamudApi.SigScanner.ScanText("E8 ?? ?? ?? ?? E9 ?? ?? ?? ?? B8 0A 00 00 00"));
-                    emoteAgent = (IntPtr)agentModule->GetAgentByInternalID(19);
+                    emoteAgent = (IntPtr)agentModule->GetAgentByInternalId(AgentId.Emote);
                 }
                 catch { PrintError("Failed to load /doemote"); }
 
                 try
                 {
                     OpenAbandonDuty = Marshal.GetDelegateForFunctionPointer<OpenAbandonDutyDelegate>(DalamudApi.SigScanner.ScanText("E8 ?? ?? ?? ?? EB 90 48 8B CB"));
-                    contentsFinderMenuAgent = (IntPtr)agentModule->GetAgentByInternalID(223);
+                    contentsFinderMenuAgent = (IntPtr)agentModule->GetAgentByInternalId(AgentId.ContentsFinderMenu);
                 }
                 catch { PrintError("Failed to load /leaveduty"); }
 
                 try
                 {
                     UseItem = Marshal.GetDelegateForFunctionPointer<UseItemDelegate>(DalamudApi.SigScanner.ScanText("E8 ?? ?? ?? ?? E9 ?? ?? ?? ?? 41 B0 01 BA 13 00 00 00"));
-                    itemContextMenuAgent = (IntPtr)agentModule->GetAgentByInternalID(10);
+                    itemContextMenuAgent = (IntPtr)agentModule->GetAgentByInternalId(AgentId.InventoryContext);
                 }
                 catch { PrintError("Failed to load /useitem"); }
             }

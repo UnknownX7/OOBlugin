@@ -110,6 +110,7 @@ namespace OOBlugin
         private void StartProcess(string argument, bool admin)
         {
             if (Regex.IsMatch(argument, @"^.:\\"))
+            {
                 Process.Start(new ProcessStartInfo
                 {
                     FileName = argument,
@@ -117,6 +118,7 @@ namespace OOBlugin
                     UseShellExecute = true,
                     Verb = admin ? "runas" : string.Empty
                 });
+            }
             else
             {
                 PrintError("Command must start with \"?:\\\" where ? is a drive letter.");
@@ -246,10 +248,17 @@ namespace OOBlugin
             Game.OpenAbandonDuty(Game.contentsFinderMenuAgent);
         }
 
+        private bool warned = false;
         [Command("/qac")]
-        [HelpMessage("/ac but it can queue. Use it with the action ID to force normally unqueueable actions into the queue (e.g. \"/qac 3\" = Sprint), however this method does not support target arguments (<f>, <tt>, <mo>, etc).")]
+        [DoNotShowInHelp]
         private void OnQueueAction(string command, string argument)
         {
+            if (!warned)
+            {
+                PrintEcho("/qac will be removed in a future update, please install and/or use ReAction's command instead.");
+                warned = true;
+            }
+
             if (Game.actionCommandRequestTypePtr == IntPtr.Zero) return;
 
             if (!uint.TryParse(argument, out var id))
