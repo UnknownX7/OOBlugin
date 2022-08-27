@@ -8,7 +8,7 @@ on:
 env:
   SOLUTION_NAME: OOBlugin
   INTERNAL_NAME: OOBlugin
-  RELEASE_DIR: ./Publish
+  RELEASE_DIR: ./bin/Release/OOBlugin
   PERSONAL_PLUGIN_REPO: UnknownX7/DalamudPluginRepo
   BRANCH: master
 
