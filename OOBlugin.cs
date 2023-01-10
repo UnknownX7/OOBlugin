@@ -219,8 +219,8 @@ namespace OOBlugin
         [HelpMessage("Toggles New Game+.")]
         private unsafe void OnNGPT(string command, string argument)
         {
-            Game.newGameUIPtr = (Game.newGameUIPtr != IntPtr.Zero) ? Game.newGameUIPtr : DalamudApi.GameGui.FindAgentInterface("QuestRedo") + 0xA8;
-            if (Game.newGameUIPtr == IntPtr.Zero) { PrintError("Failed to get NG+ agent, please open the NG+ window and then use this command to initialize it."); return; }
+            Game.newGameUIPtr = (Game.newGameUIPtr != nint.Zero) ? Game.newGameUIPtr : DalamudApi.GameGui.FindAgentInterface("QuestRedo") + 0xA8;
+            if (Game.newGameUIPtr == nint.Zero) { PrintError("Failed to get NG+ agent, please open the NG+ window and then use this command to initialize it."); return; }
 
             *(byte*)(Game.newGameUIPtr + 0x8) ^= 1;
             Game.NewGamePlusAction(Game.GetUnknownNGPPtr(), Game.newGameUIPtr);
@@ -230,8 +230,8 @@ namespace OOBlugin
         [HelpMessage("Performs the specified emote by number.")]
         private void OnDoEmote(string command, string argument)
         {
-            Game.emoteAgent = (Game.emoteAgent != IntPtr.Zero) ? Game.emoteAgent : DalamudApi.GameGui.FindAgentInterface("Emote");
-            if (Game.emoteAgent == IntPtr.Zero) { PrintError("Failed to get emote agent, please open the emote window and then use this command to initialize it."); return; }
+            Game.emoteAgent = (Game.emoteAgent != nint.Zero) ? Game.emoteAgent : DalamudApi.GameGui.FindAgentInterface("Emote");
+            if (Game.emoteAgent == nint.Zero) { PrintError("Failed to get emote agent, please open the emote window and then use this command to initialize it."); return; }
 
             if (uint.TryParse(argument, out var emote))
                 Game.DoEmote(Game.emoteAgent, emote, 0, true, true);
@@ -243,39 +243,9 @@ namespace OOBlugin
         [HelpMessage("Opens the abandon duty prompt, use YesAlready to make it instant.")]
         private void OnLeaveDuty(string command, string argument)
         {
-            Game.contentsFinderMenuAgent = (Game.contentsFinderMenuAgent != IntPtr.Zero) ? Game.contentsFinderMenuAgent : DalamudApi.GameGui.FindAgentInterface("ContentsFinderMenu");
-            if (Game.contentsFinderMenuAgent == IntPtr.Zero) { PrintError("Failed to get duty finder agent, please open the duty finder window and then use this command to initialize it."); return; }
+            Game.contentsFinderMenuAgent = (Game.contentsFinderMenuAgent != nint.Zero) ? Game.contentsFinderMenuAgent : DalamudApi.GameGui.FindAgentInterface("ContentsFinderMenu");
+            if (Game.contentsFinderMenuAgent == nint.Zero) { PrintError("Failed to get duty finder agent, please open the duty finder window and then use this command to initialize it."); return; }
             Game.OpenAbandonDuty(Game.contentsFinderMenuAgent);
-        }
-
-        private bool warned = false;
-        [Command("/qac")]
-        [DoNotShowInHelp]
-        private void OnQueueAction(string command, string argument)
-        {
-            if (!warned)
-            {
-                PrintEcho("/qac will be removed in a future update, please install and/or use ReAction's command instead.");
-                warned = true;
-            }
-
-            if (Game.actionCommandRequestTypePtr == IntPtr.Zero) return;
-
-            if (!uint.TryParse(argument, out var id))
-            {
-                Game.ActionCommandRequestType = 0;
-                ExecuteCommand("/ac " + argument.Replace(" ", "\"").Replace(" ", "\"")); // big mood (auto-translate)
-                Game.ActionCommandRequestType = 2;
-            }
-            else if (!Game.IsQueued)
-            {
-                Game.IsQueued = true;
-                Game.QueuedActionType = 1;
-                Game.QueuedAction = id;
-                Game.QueuedTarget = DalamudApi.TargetManager.Target is {} actor ? actor.ObjectId : 0;
-                Game.QueuedUseType = 0;
-                Game.QueuedPVPAction = 0;
-            }
         }
 
         public static void PrintEcho(string message) => DalamudApi.ChatGui.Print($"[OOBlugin] {message}");
@@ -333,7 +303,7 @@ namespace OOBlugin
                 Marshal.WriteInt64(memStr + 0x10, bytes.Length); // Byte length
                 Marshal.Copy(bytes, 0, memStr + 0x18, bytes.Length); // String
 
-                Game.ProcessChatBox(Game.uiModule, memStr, IntPtr.Zero, 0);
+                Game.ProcessChatBox(Game.uiModule, memStr, nint.Zero, 0);
 
                 Marshal.FreeHGlobal(memStr);
             }
