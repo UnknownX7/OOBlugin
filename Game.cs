@@ -89,7 +89,7 @@ namespace OOBlugin
             }
             catch { PrintError("Failed to load /qexec"); }
 
-            try { walkingBoolPtr = DalamudApi.SigScanner.GetStaticAddressFromSig("88 83 ?? ?? ?? ?? 0F B6 05 ?? ?? ?? ?? 88 83"); } // also found around g_PlayerMoveController+523
+            try { walkingBoolPtr = DalamudApi.SigScanner.GetStaticAddressFromSig("40 38 35 ?? ?? ?? ?? 75 2D"); } // also found around g_PlayerMoveController+523
             catch { PrintError("Failed to load /walk"); }
 
             try
