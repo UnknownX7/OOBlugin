@@ -219,7 +219,7 @@ namespace OOBlugin
         [HelpMessage("Toggles New Game+.")]
         private unsafe void OnNGPT(string command, string argument)
         {
-            Game.newGameUIPtr = (Game.newGameUIPtr != nint.Zero) ? Game.newGameUIPtr : DalamudApi.GameGui.FindAgentInterface("QuestRedo") + 0xA8;
+            Game.newGameUIPtr = (Game.newGameUIPtr != nint.Zero) ? Game.newGameUIPtr : DalamudApi.GameGui.FindAgentInterface("QuestRedo") + 0xD0;
             if (Game.newGameUIPtr == nint.Zero) { PrintError("Failed to get NG+ agent, please open the NG+ window and then use this command to initialize it."); return; }
 
             *(byte*)(Game.newGameUIPtr + 0x8) ^= 1;

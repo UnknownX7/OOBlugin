@@ -100,7 +100,7 @@ namespace OOBlugin
                 {
                     GetUnknownNGPPtr = Marshal.GetDelegateForFunctionPointer<GetUnknownNGPPtrDelegate>(DalamudApi.SigScanner.ScanText("E8 ?? ?? ?? ?? 80 7B 29 01"));
                     NewGamePlusAction = Marshal.GetDelegateForFunctionPointer<NewGamePlusActionDelegate>(DalamudApi.SigScanner.ScanText("48 89 5C 24 08 48 89 74 24 18 57 48 83 EC 30 48 8B 02 48 8B DA 48 8B F9 48 8D 54 24 48 48 8B CB"));
-                    newGameUIPtr = (nint)agentModule->GetAgentByInternalId(AgentId.QuestRedo) + 0xA8;
+                    newGameUIPtr = (nint)agentModule->GetAgentByInternalId(AgentId.QuestRedo) + 0xD0;
                 }
                 catch { PrintError("Failed to load /ng+t"); }
 
