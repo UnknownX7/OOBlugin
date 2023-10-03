@@ -11,6 +11,7 @@ using System.Windows.Forms;
 using System.Linq;
 using Dalamud.Game;
 using Dalamud.Plugin;
+using Dalamud.Plugin.Services;
 using ImGuiNET;
 
 namespace OOBlugin
@@ -48,14 +49,9 @@ namespace OOBlugin
 
             Game.Initialize();
 
-            Task.Run(async () =>
-            {
-                while (!DalamudApi.DataManager.IsDataReady)
-                    await Task.Delay(1000);
-                usables = DalamudApi.DataManager.GetExcelSheet<Lumina.Excel.GeneratedSheets.Item>().Where(i => i.ItemAction.Row > 0).ToDictionary(i => i.RowId, i => i.Name.ToString().ToLower())
-                    .Concat(DalamudApi.DataManager.GetExcelSheet<Lumina.Excel.GeneratedSheets.EventItem>().Where(i => i.Action.Row > 0).ToDictionary(i => i.RowId, i => i.Name.ToString().ToLower()))
-                    .ToDictionary(kv => kv.Key, kv => kv.Value);
-            });
+            usables = DalamudApi.DataManager.GetExcelSheet<Lumina.Excel.GeneratedSheets.Item>().Where(i => i.ItemAction.Row > 0).ToDictionary(i => i.RowId, i => i.Name.ToString().ToLower())
+                .Concat(DalamudApi.DataManager.GetExcelSheet<Lumina.Excel.GeneratedSheets.EventItem>().Where(i => i.Action.Row > 0).ToDictionary(i => i.RowId, i => i.Name.ToString().ToLower()))
+                .ToDictionary(kv => kv.Key, kv => kv.Value);
 
             pluginReady = true;
         }
@@ -251,7 +247,7 @@ namespace OOBlugin
         public static void PrintEcho(string message) => DalamudApi.ChatGui.Print($"[OOBlugin] {message}");
         public static void PrintError(string message) => DalamudApi.ChatGui.PrintError($"[OOBlugin] {message}");
 
-        private void Update(Framework framework)
+        private void Update(IFramework framework)
         {
             if (!pluginReady) return;
 
